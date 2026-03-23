@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autopsy — Code Forensics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #05080a;
+  --surface:   #0c1316;
+  --surface2:  #121d22;
+  --surface3:  #172530;
+  --border:    #1c2d35;
+  --border2:   #243a44;
+  --text:      #c4d4da;
+  --text2:     #5a7480;
+  --text3:     #2e4450;
+  --accent:    #00c8e0;
+  --accent-d:  rgba(0,200,224,0.10);
+  --red:       #e8334a;
+  --red-d:     rgba(232,51,74,0.09);
+  --orange:    #f06030;
+  --orange-d:  rgba(240,96,48,0.09);
+  --yellow:    #d4a842;
+  --yellow-d:  rgba(212,168,66,0.09);
+  --green:     #3dbc7a;
+  --green-d:   rgba(61,188,122,0.09);
+  --font:      'JetBrains Mono', monospace;
+  --font-d:    'Bebas Neue', sans-serif;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+body {
+  background-image: radial-gradient(circle, #142028 1px, transparent 1px);
+  background-size: 24px 24px;
+  min-height: 100vh;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ─── Layout ─────────────────────────────────────────────────── */
+.wrap { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+/* ─── Header ─────────────────────────────────────────────────── */
+header {
+  border-bottom: 1px solid var(--border);
+  background: rgba(5,8,10,0.92);
+  backdrop-filter: blur(12px);
+  position: sticky; top: 0; z-index: 100;
+}
+.header-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px;
+}
+.logo {
+  display: flex; align-items: baseline; gap: 10px;
+}
+.logo-text {
+  font-family: var(--font-d);
+  font-size: 32px;
+  letter-spacing: 3px;
+  color: var(--text);
+  line-height: 1;
+}
+.logo-sub {
+  font-size: 10px;
+  color: var(--text2);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  border-left: 1px solid var(--border2);
+  padding-left: 10px;
+  margin-left: 2px;
+}
+.header-right {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; color: var(--text2);
+}
+.status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--text3);
+  transition: background 0.4s;
+  flex-shrink: 0;
+}
+.status-dot.online  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.status-dot.offline { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+
+/* ─── Views ──────────────────────────────────────────────────── */
+.view { display: none; }
+.view.active { display: block; }
+
+/* ─── INPUT VIEW ─────────────────────────────────────────────── */
+#input-view { padding: 52px 0 80px; }
+.tagline {
+  font-size: 11px; letter-spacing: 3px; color: var(--text2);
+  text-transform: uppercase; text-align: center;
+  margin-bottom: 40px;
+}
+.tagline span { color: var(--red); }
+
+/* Input card */
+.input-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.card-topbar {
+  display: flex; align-items: stretch;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+.tabs { display: flex; flex: 1; }
+.tab-btn {
+  flex: 1; padding: 0 20px; height: 44px;
+  background: none; border: none; border-right: 1px solid var(--border);
+  color: var(--text2); font-family: var(--font); font-size: 11px;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  cursor: pointer; transition: all 0.15s;
+}
+.tab-btn:hover { background: var(--surface3); color: var(--text); }
+.tab-btn.active {
+  background: var(--surface); color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+  margin-bottom: -1px;
+}
+.model-area {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 16px;
+  border-left: 1px solid var(--border);
+}
+.model-area label { font-size: 10px; color: var(--text2); letter-spacing: 1px; }
+#model-select {
+  background: var(--surface3); border: 1px solid var(--border2);
+  color: var(--text); font-family: var(--font); font-size: 11px;
+  padding: 4px 8px; border-radius: 3px; cursor: pointer; outline: none;
+}
+#model-select:focus { border-color: var(--accent); }
+
+/* Tab content */
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+textarea#paste-input {
+  width: 100%; min-height: 280px; max-height: 500px;
+  background: transparent; border: none; outline: none; resize: vertical;
+  color: var(--text); font-family: var(--font); font-size: 13px;
+  line-height: 1.7; padding: 20px 24px;
+  caret-color: var(--accent);
+}
+textarea#paste-input::placeholder { color: var(--text3); }
+
+.url-panel { padding: 40px 24px; display: flex; flex-direction: column; gap: 10px; }
+.url-panel label { font-size: 11px; color: var(--text2); letter-spacing: 1px; }
+input#url-input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 3px; color: var(--text); font-family: var(--font);
+  font-size: 13px; padding: 12px 16px; outline: none;
+  transition: border-color 0.15s;
+}
+input#url-input:focus { border-color: var(--accent); }
+input#url-input::placeholder { color: var(--text3); }
+
+.file-panel { padding: 40px 24px; }
+.dropzone {
+  border: 1px dashed var(--border2); border-radius: 3px;
+  min-height: 140px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px;
+  cursor: pointer; transition: all 0.15s;
+  position: relative;
+}
+.dropzone:hover, .dropzone.drag-over {
+  border-color: var(--accent); background: var(--accent-d);
+}
+.dropzone input[type="file"] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer;
+}
+.dropzone-icon { font-size: 28px; opacity: 0.4; }
+.dropzone-text { font-size: 11px; color: var(--text2); letter-spacing: 1px; }
+#file-name { font-size: 12px; color: var(--accent); margin-top: 6px; }
+
+/* Bottom bar */
+.card-bottom {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--surface2);
+}
+.input-hint { font-size: 10px; color: var(--text3); letter-spacing: 1px; }
+.btn-analyse {
+  background: var(--red); border: none; border-radius: 3px;
+  color: #fff; font-family: var(--font); font-size: 12px;
+  font-weight: 600; letter-spacing: 2px; text-transform: uppercase;
+  padding: 10px 28px; cursor: pointer;
+  transition: all 0.15s; position: relative; overflow: hidden;
+}
+.btn-analyse:hover { background: #ff3d55; transform: translateY(-1px); }
+.btn-analyse:active { transform: translateY(0); }
+.btn-analyse:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+/* ─── LOADING VIEW ───────────────────────────────────────────── */
+#loading-view {
+  display: none; min-height: 70vh;
+  align-items: center; justify-content: center; flex-direction: column;
+  gap: 40px; padding: 60px 0;
+  text-align: center;
+}
+#loading-view.active { display: flex; }
+.loading-title {
+  font-family: var(--font-d); font-size: 42px;
+  letter-spacing: 6px; color: var(--text);
+}
+.loading-title .blink {
+  animation: blink 1s step-end infinite;
+  color: var(--red);
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+.loading-steps { display: flex; flex-direction: column; gap: 10px; width: 320px; }
+.loading-step {
+  display: flex; align-items: center; gap: 12px;
+  font-size: 11px; letter-spacing: 1px; color: var(--text3);
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+  transition: color 0.3s;
+}
+.loading-step.active { color: var(--text); }
+.loading-step.done   { color: var(--green); }
+.step-num { font-size: 10px; color: var(--text3); width: 20px; flex-shrink: 0; }
+.step-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--text3); flex-shrink: 0;
+  transition: background 0.3s;
+}
+.loading-step.active .step-dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.loading-step.done   .step-dot { background: var(--green); }
+
+.loading-bar-track {
+  width: 320px; height: 2px; background: var(--border);
+  border-radius: 1px; overflow: hidden;
+}
+.loading-bar-fill {
+  height: 100%; width: 0; background: var(--red);
+  border-radius: 1px; transition: width 0.6s ease;
+}
+
+/* ─── RESULTS VIEW ───────────────────────────────────────────── */
+#results-view { padding: 32px 0 80px; display: none; }
+#results-view.active { display: block; }
+
+.results-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 32px; flex-wrap: wrap; gap: 12px;
+}
+.results-meta {
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap;
+}
+.meta-chip {
+  font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--text2); padding: 3px 8px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 2px;
+}
+.meta-sep { color: var(--border2); }
+.btn-ghost {
+  background: none; border: 1px solid var(--border2); border-radius: 3px;
+  color: var(--text2); font-family: var(--font); font-size: 11px;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  padding: 8px 16px; cursor: pointer; transition: all 0.15s;
+}
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Risk section */
+.risk-section {
+  display: flex; gap: 40px; align-items: flex-start;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; padding: 36px; margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.risk-gauge-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  flex-shrink: 0;
+}
+.gauge-container { position: relative; width: 160px; height: 160px; }
+.gauge-container svg { width: 160px; height: 160px; }
+.gauge-inner {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+#r-score {
+  font-family: var(--font-d); font-size: 52px;
+  line-height: 1; color: var(--text);
+  letter-spacing: 2px;
+}
+.score-max { font-size: 11px; color: var(--text3); }
+#r-label {
+  font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.risk-right { flex: 1; min-width: 200px; }
+.risk-summary-text {
+  font-size: 14px; color: var(--text); line-height: 1.8;
+  margin-bottom: 20px;
+}
+.breakdown-grid {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.breakdown-chip {
+  font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 2px;
+  border: 1px solid var(--border2); color: var(--text2);
+  display: flex; gap: 6px; align-items: center;
+}
+.bc-count {
+  font-weight: 600; color: var(--text);
+}
+.issue-total-bar {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 4px;
+}
+.total-count {
+  font-family: var(--font-d); font-size: 28px;
+  letter-spacing: 2px; color: var(--text);
+}
+.total-label { font-size: 11px; color: var(--text2); letter-spacing: 1px; }
+
+/* Severity legend */
+.sev-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.sev-pill {
+  font-size: 10px; letter-spacing: 1.5px;
+  padding: 3px 8px; border-radius: 2px;
+}
+
+/* Issues section */
+.issues-header {
+  font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--text2); margin-bottom: 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+.issues-header::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+/* Issue cards */
+.issue-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left-width: 3px; border-radius: 4px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  animation: slideIn 0.3s ease forwards;
+  opacity: 0;
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.issue-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px;
+  cursor: pointer; user-select: none;
+  transition: background 0.15s;
+}
+.issue-header:hover { background: var(--surface2); }
+.severity-badge {
+  font-size: 9px; font-weight: 600; letter-spacing: 1.5px;
+  text-transform: uppercase; padding: 3px 7px; border-radius: 2px;
+  flex-shrink: 0;
+}
+.category-tag {
+  font-size: 9px; letter-spacing: 1px; color: var(--text2);
+  text-transform: uppercase; flex-shrink: 0;
+}
+.issue-title-text {
+  font-size: 13px; font-weight: 500; color: var(--text); flex: 1;
+}
+.issue-chevron {
+  color: var(--text3); font-size: 12px; transition: transform 0.2s;
+  flex-shrink: 0;
+}
+.issue-card.expanded .issue-chevron { transform: rotate(90deg); }
+
+.issue-body { display: none; }
+.issue-card.expanded .issue-body { display: block; }
+
+.issue-explanation {
+  padding: 0 18px 16px;
+  font-size: 13px; line-height: 1.8; color: var(--text2);
+  border-bottom: 1px solid var(--border);
+}
+
+.issue-snippet-wrap {
+  border-bottom: 1px solid var(--border);
+}
+.snippet-label {
+  font-size: 9px; letter-spacing: 2px; color: var(--text3);
+  padding: 10px 18px 4px; text-transform: uppercase;
+}
+pre.issue-snippet {
+  margin: 0; padding: 12px 18px 16px;
+  font-family: var(--font); font-size: 12px;
+  color: var(--text2); overflow-x: auto;
+  white-space: pre-wrap; word-break: break-all;
+}
+
+.issue-fix-wrap {}
+.fix-label-bar {
+  font-size: 9px; letter-spacing: 2px; color: var(--text3);
+  padding: 10px 18px 4px; text-transform: uppercase;
+}
+.fix-content {
+  padding: 4px 18px 18px;
+  font-size: 13px; line-height: 1.8; color: var(--green);
+  white-space: pre-wrap;
+}
+
+/* ─── Empty state ────────────────────────────────────────────── */
+.empty-state {
+  text-align: center; padding: 60px 20px;
+  font-size: 11px; letter-spacing: 2px;
+  color: var(--text3); text-transform: uppercase;
+}
+
+/* ─── Toast ──────────────────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--surface2); border: 1px solid var(--red);
+  border-left: 3px solid var(--red);
+  color: var(--text); font-size: 12px; padding: 12px 20px;
+  border-radius: 3px; display: none; z-index: 999;
+  max-width: 460px; text-align: center;
+  animation: fadeUp 0.2s ease;
+}
+@keyframes fadeUp {
+  from { opacity:0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity:1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ─── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .card-topbar { flex-direction: column; }
+  .model-area { border-left: none; border-top: 1px solid var(--border); padding: 10px 16px; }
+  .tab-btn { font-size: 10px; padding: 0 10px; }
+  .risk-section { flex-direction: column; align-items: center; text-align: center; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────── -->
+<header>
+  <div class="wrap header-inner">
+    <div class="logo">
+      <span class="logo-text">AUTOPSY</span>
+      <span class="logo-sub">Code Forensics · v1.0</span>
+    </div>
+    <div class="header-right">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">connecting…</span>
+    </div>
+  </div>
+</header>
+
+<!-- ── INPUT VIEW ─────────────────────────────────────────────── -->
+<div id="input-view" class="view active">
+  <div class="wrap">
+    <p class="tagline">Your code is dead. <span>Let's find out why.</span></p>
+
+    <div class="input-card">
+      <!-- Top bar: tabs + model selector -->
+      <div class="card-topbar">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="paste">Paste Code</button>
+          <button class="tab-btn" data-tab="url">GitHub URL</button>
+          <button class="tab-btn" data-tab="file">Upload File</button>
+        </div>
+        <div class="model-area">
+          <label>MODEL</label>
+          <select id="model-select">
+            <option value="llama3">llama3</option>
+            <option value="mistral">mistral</option>
+            <option value="codellama">codellama</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Paste panel -->
+      <div id="panel-paste" class="tab-panel active">
+        <textarea id="paste-input" placeholder="// paste any code here — any language, any size&#10;&#10;function riskyFunction(userInput) {&#10;  eval(userInput); // this will definitely be fine&#10;}"></textarea>
+      </div>
+
+      <!-- URL panel -->
+      <div id="panel-url" class="tab-panel">
+        <div class="url-panel">
+          <label>GITHUB REPOSITORY URL</label>
+          <input id="url-input" type="url" placeholder="https://github.com/username/repository">
+          <span style="font-size:11px;color:var(--text3)">Public repos only. Requires GitPython: pip install gitpython</span>
+        </div>
+      </div>
+
+      <!-- File panel -->
+      <div id="panel-file" class="tab-panel">
+        <div class="file-panel">
+          <div class="dropzone" id="dropzone">
+            <input type="file" id="file-input" accept=".py,.js,.ts,.jsx,.tsx,.java,.c,.cpp,.h,.go,.rs,.rb,.php,.cs,.swift,.kt,.sh,.html,.css,.sql,.lua,.dart,.vue,.svelte,.r,.ex">
+            <div class="dropzone-icon">⬡</div>
+            <div class="dropzone-text">DROP FILE HERE OR CLICK TO BROWSE</div>
+            <div id="file-name"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom bar -->
+      <div class="card-bottom">
+        <span class="input-hint" id="input-hint">ready — awaiting code</span>
+        <button class="btn-analyse" id="analyse-btn">Perform Autopsy</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── LOADING VIEW ────────────────────────────────────────────── -->
+<div id="loading-view" class="view">
+  <div class="loading-title">PERFORMING AUTOPSY<span class="blink">_</span></div>
+  <div class="loading-steps">
+    <div class="loading-step" id="lstep-1">
+      <span class="step-num">01</span>
+      <div class="step-dot"></div>
+      <span>Parsing code</span>
+    </div>
+    <div class="loading-step" id="lstep-2">
+      <span class="step-num">02</span>
+      <div class="step-dot"></div>
+      <span>Running forensic analysis</span>
+    </div>
+    <div class="loading-step" id="lstep-3">
+      <span class="step-num">03</span>
+      <div class="step-dot"></div>
+      <span>Calculating risk score</span>
+    </div>
+    <div class="loading-step" id="lstep-4">
+      <span class="step-num">04</span>
+      <div class="step-dot"></div>
+      <span>Compiling report</span>
+    </div>
+  </div>
+  <div class="loading-bar-track">
+    <div class="loading-bar-fill" id="loading-bar"></div>
+  </div>
+</div>
+
+<!-- ── RESULTS VIEW ────────────────────────────────────────────── -->
+<div id="results-view" class="view">
+  <div class="wrap">
+    <!-- Topbar -->
+    <div class="results-topbar">
+      <div class="results-meta">
+        <span class="meta-chip" id="r-name">—</span>
+        <span class="meta-sep">/</span>
+        <span class="meta-chip" id="r-lang">—</span>
+        <span class="meta-sep">/</span>
+        <span class="meta-chip" id="r-time">—</span>
+      </div>
+      <button class="btn-ghost" id="new-btn">↩ New Autopsy</button>
+    </div>
+
+    <!-- Risk section -->
+    <div class="risk-section">
+      <div class="risk-gauge-wrap">
+        <div class="gauge-container">
+          <svg viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+            <!-- Track -->
+            <circle cx="80" cy="80" r="66"
+              fill="none" stroke="var(--border)" stroke-width="8"/>
+            <!-- Progress arc -->
+            <circle id="gauge-arc" cx="80" cy="80" r="66"
+              fill="none" stroke="var(--red)" stroke-width="8"
+              stroke-linecap="round"
+              stroke-dasharray="414.69"
+              stroke-dashoffset="414.69"
+              transform="rotate(-90 80 80)"
+              style="transition: stroke-dashoffset 1.2s ease, stroke 0.6s ease"/>
+          </svg>
+          <div class="gauge-inner">
+            <span id="r-score">0</span>
+            <span class="score-max">/100</span>
+            <span id="r-label">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="risk-right">
+        <div class="issue-total-bar">
+          <span class="total-count" id="r-total">0</span>
+          <span class="total-label">&nbsp;issues found</span>
+        </div>
+        <div class="sev-legend" id="r-sev-legend"></div>
+        <p class="risk-summary-text" id="r-summary"></p>
+        <div class="breakdown-grid" id="r-breakdown"></div>
+      </div>
+    </div>
+
+    <!-- Issues list -->
+    <div class="issues-header">Cause of Death</div>
+    <div id="issues-list"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────
+let activeTab = 'paste';
+let selectedFile = null;
+
+const SEVERITY = {
+  critical: { color: '#e8334a', bg: 'rgba(232,51,74,0.12)', label: 'CRITICAL' },
+  high:     { color: '#f06030', bg: 'rgba(240,96,48,0.12)', label: 'HIGH' },
+  medium:   { color: '#d4a842', bg: 'rgba(212,168,66,0.12)', label: 'MEDIUM' },
+  low:      { color: '#3dbc7a', bg: 'rgba(61,188,122,0.12)', label: 'LOW' },
+};
+
+// ── Ollama status ─────────────────────────────────────────────────
+async function checkOllama() {
+  try {
+    const res = await fetch('/api/models');
+    const data = await res.json();
+    const dot  = document.getElementById('status-dot');
+    const txt  = document.getElementById('status-text');
+    if (data.status === 'online' && data.models.length) {
+      dot.className = 'status-dot online';
+      txt.textContent = `ollama online · ${data.models.length} model${data.models.length > 1 ? 's' : ''}`;
+      populateModels(data.models);
+    } else {
+      dot.className = 'status-dot offline';
+      txt.textContent = 'ollama offline';
+    }
+  } catch {
+    document.getElementById('status-dot').className = 'status-dot offline';
+    document.getElementById('status-text').textContent = 'ollama offline';
+  }
+}
+
+function populateModels(models) {
+  const sel = document.getElementById('model-select');
+  sel.innerHTML = models.map(m =>
+    `<option value="${m}">${m}</option>`
+  ).join('');
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    activeTab = btn.dataset.tab;
+    document.getElementById(`panel-${activeTab}`).classList.add('active');
+    updateHint();
+  });
+});
+
+// ── File input ────────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', (e) => {
+  selectedFile = e.target.files[0] || null;
+  document.getElementById('file-name').textContent = selectedFile ? selectedFile.name : '';
+  updateHint();
+});
+
+const dropzone = document.getElementById('dropzone');
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    selectedFile = file;
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-input').files = e.dataTransfer.files;
+    updateHint();
+  }
+});
+
+function updateHint() {
+  const hint = document.getElementById('input-hint');
+  if (activeTab === 'paste') {
+    const lines = document.getElementById('paste-input').value.split('\n').length;
+    hint.textContent = `${lines} line${lines !== 1 ? 's' : ''} — ready`;
+  } else if (activeTab === 'url') {
+    const url = document.getElementById('url-input').value;
+    hint.textContent = url ? 'repo url set' : 'enter a github url';
+  } else {
+    hint.textContent = selectedFile ? selectedFile.name : 'no file selected';
+  }
+}
+
+document.getElementById('paste-input').addEventListener('input', updateHint);
+document.getElementById('url-input').addEventListener('input', updateHint);
+
+// ── Loading animation ─────────────────────────────────────────────
+function animateLoading() {
+  const steps = [
+    { id: 'lstep-1', delay: 0,    barWidth: 20 },
+    { id: 'lstep-2', delay: 800,  barWidth: 45 },
+    { id: 'lstep-3', delay: 2200, barWidth: 80 },
+    { id: 'lstep-4', delay: 3000, barWidth: 95 },
+  ];
+
+  // Reset
+  steps.forEach(s => {
+    const el = document.getElementById(s.id);
+    el.classList.remove('active', 'done');
+  });
+  document.getElementById('loading-bar').style.width = '0%';
+
+  steps.forEach((s, i) => {
+    setTimeout(() => {
+      if (i > 0) document.getElementById(steps[i-1].id).classList.remove('active');
+      if (i > 0) document.getElementById(steps[i-1].id).classList.add('done');
+      document.getElementById(s.id).classList.add('active');
+      document.getElementById('loading-bar').style.width = s.barWidth + '%';
+    }, s.delay);
+  });
+}
+
+// ── Analyse ───────────────────────────────────────────────────────
+document.getElementById('analyse-btn').addEventListener('click', runAutopsy);
+
+async function runAutopsy() {
+  const btn = document.getElementById('analyse-btn');
+  btn.disabled = true;
+
+  // Validate
+  if (activeTab === 'paste' && !document.getElementById('paste-input').value.trim()) {
+    showToast('Paste some code first.'); btn.disabled = false; return;
+  }
+  if (activeTab === 'url' && !document.getElementById('url-input').value.trim()) {
+    showToast('Enter a GitHub repository URL.'); btn.disabled = false; return;
+  }
+  if (activeTab === 'file' && !selectedFile) {
+    showToast('Select a file to upload.'); btn.disabled = false; return;
+  }
+
+  showView('loading');
+  animateLoading();
+
+  const formData = new FormData();
+  formData.append('type',  activeTab);
+  formData.append('model', document.getElementById('model-select').value);
+
+  if (activeTab === 'paste') {
+    formData.append('content', document.getElementById('paste-input').value);
+  } else if (activeTab === 'url') {
+    formData.append('content', document.getElementById('url-input').value);
+  } else if (activeTab === 'file') {
+    formData.append('file', selectedFile);
+  }
+
+  try {
+    const res  = await fetch('/api/analyse', { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (data.error) {
+      showView('input');
+      showToast('Error: ' + data.error);
+      btn.disabled = false;
+      return;
+    }
+
+    document.getElementById('loading-bar').style.width = '100%';
+    setTimeout(() => renderReport(data), 400);
+
+  } catch (err) {
+    showView('input');
+    showToast('Network error: ' + err.message);
+    btn.disabled = false;
+  }
+}
+
+// ── Render report ─────────────────────────────────────────────────
+function renderReport(data) {
+  const { meta, risk, summary, issues } = data;
+
+  // Topbar meta
+  document.getElementById('r-name').textContent = meta.name || '—';
+  document.getElementById('r-lang').textContent = meta.language || '—';
+  document.getElementById('r-time').textContent = meta.analysed_at || '—';
+
+  // Gauge
+  const arc  = document.getElementById('gauge-arc');
+  const circ = 2 * Math.PI * 66; // 414.69
+  const offset = circ - (risk.score / 100) * circ;
+  arc.style.strokeDashoffset = offset;
+  arc.style.stroke = risk.color;
+
+  // Score + label
+  animateNumber('r-score', 0, risk.score, 1000);
+  const labelEl = document.getElementById('r-label');
+  labelEl.textContent = risk.label;
+  labelEl.style.color = risk.color;
+
+  // Total
+  document.getElementById('r-total').textContent = meta.total_issues;
+
+  // Severity legend
+  const sevCounts = { critical: 0, high: 0, medium: 0, low: 0 };
+  issues.forEach(i => { if (sevCounts[i.severity] !== undefined) sevCounts[i.severity]++; });
+  const sevLeg = document.getElementById('r-sev-legend');
+  sevLeg.innerHTML = Object.entries(sevCounts)
+    .filter(([,c]) => c > 0)
+    .map(([sev, count]) => {
+      const s = SEVERITY[sev];
+      return `<span class="sev-pill" style="color:${s.color};background:${s.bg}">${count} ${s.label}</span>`;
+    }).join('');
+
+  // Summary
+  document.getElementById('r-summary').textContent = summary;
+
+  // Category breakdown
+  const bd = risk.breakdown || {};
+  const bdEl = document.getElementById('r-breakdown');
+  bdEl.innerHTML = Object.entries(bd).length
+    ? Object.entries(bd).map(([cat, count]) =>
+        `<div class="breakdown-chip"><span class="bc-count">${count}</span>${cat}</div>`
+      ).join('')
+    : '<span style="font-size:11px;color:var(--text3)">no issues found</span>';
+
+  // Issues
+  renderIssues(issues);
+
+  showView('results');
+  document.getElementById('analyse-btn').disabled = false;
+}
+
+function renderIssues(issues) {
+  const container = document.getElementById('issues-list');
+  if (!issues.length) {
+    container.innerHTML = `<div class="empty-state">
+      ✓ &nbsp; No issues detected — code appears healthy
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = issues.map((issue, idx) => {
+    const sev = SEVERITY[issue.severity] || SEVERITY.low;
+    const delay = idx * 60;
+    const snippetBlock = issue.snippet
+      ? `<div class="issue-snippet-wrap">
+           <div class="snippet-label">Offending code</div>
+           <pre class="issue-snippet">${escapeHtml(issue.snippet)}</pre>
+         </div>`
+      : '';
+    return `
+      <div class="issue-card" style="border-left-color:${sev.color}; animation-delay:${delay}ms">
+        <div class="issue-header" onclick="toggleIssue(this)">
+          <span class="severity-badge" style="color:${sev.color};background:${sev.bg}">${sev.label}</span>
+          <span class="category-tag">${issue.category}</span>
+          <span class="issue-title-text">${escapeHtml(issue.title)}</span>
+          <span class="issue-chevron">▶</span>
+        </div>
+        <div class="issue-body">
+          <div class="issue-explanation">${escapeHtml(issue.explanation)}</div>
+          ${snippetBlock}
+          <div class="issue-fix-wrap">
+            <div class="fix-label-bar">Fix</div>
+            <div class="fix-content">${escapeHtml(issue.fix)}</div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function toggleIssue(header) {
+  const card = header.closest('.issue-card');
+  card.classList.toggle('expanded');
+}
+
+// ── Utils ─────────────────────────────────────────────────────────
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(`${name}-view`).classList.add('active');
+}
+
+function animateNumber(id, from, to, duration) {
+  const el = document.getElementById(id);
+  const start = performance.now();
+  function tick(now) {
+    const p = Math.min((now - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round(from + (to - from) * ease);
+    if (p < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.style.display = 'none', 4000);
+}
+
+// ── New autopsy ────────────────────────────────────────────────────
+document.getElementById('new-btn').addEventListener('click', () => {
+  showView('input');
+  document.getElementById('issues-list').innerHTML = '';
+});
+
+// ── Init ───────────────────────────────────────────────────────────
+checkOllama();
+setInterval(checkOllama, 15000);
+</script>
+</body>
+</html>
